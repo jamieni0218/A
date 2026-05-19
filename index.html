@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健康捕手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-pink: #FFB6C1; /* 淺粉紅 */
+            --secondary-pink: #FF69B4; /* 亮粉紅 */
+            --bg-pink: #FFF0F5; /* 薰衣草紫紅 (非常淺的粉紅) */
+            --text-dark: #4A4A4A;
+            --text-light: #FFFFFF;
+        }
+
+        body {
+            background-color: var(--bg-pink);
+            color: var(--text-dark);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* 模擬手機螢幕的容器 */
+        .app-container {
+            width: 100%;
+            max-width: 414px; /* iPhone Max 寬度 */
+            background-color: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 頂部導航列 */
+        .header {
+            background: linear-gradient(135deg, var(--primary-pink), var(--secondary-pink));
+            color: var(--text-light);
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            box-shadow: 0 4px 6px rgba(255, 105, 180, 0.2);
+            z-index: 10;
+        }
+
+        /* 主要內容區域 */
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            padding-bottom: 80px; /* 留出底部導航的空間 */
+        }
+
+        /* 卡片樣式 */
+        .card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(255, 182, 193, 0.3);
+            border: 1px solid rgba(255, 182, 193, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--secondary-pink);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 表單元素樣式 */
+        .input-group {
+            margin-bottom: 10px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--primary-pink);
+            border-radius: 8px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus, input[type="text"]:focus {
+            border-color: var(--secondary-pink);
+            box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.2);
+        }
+
+        /* 按鈕樣式 */
+        .btn {
+            background: linear-gradient(135deg, var(--primary-pink), var(--secondary-pink));
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* 底部導航列 */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            border-top: 1px solid #eee;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #ccc;
+            text-decoration: none;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .nav-item i {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .nav-item.active {
+            color: var(--secondary-pink);
+        }
+
+        /* 隱藏不同頁面的類別 */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 卡路里進度條 */
+        .progress-bar-container {
+            width: 100%;
+            height: 20px;
+            background-color: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #facc15, #f87171); /* 綠 -> 黃 -> 紅 */
+            transition: width 0.5s ease-in-out;
+        }
+
+        /* 飲食紀錄列表 */
+        .food-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--primary-pink);
+        }
+        .food-item:last-child {
+            border-bottom: none;
+        }
+
+        /* 圖表容器 */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .stat-summary {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: var(--secondary-pink);
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 頂部標題 -->
+        <div class="header">
+            <i class="fa-solid fa-heart-pulse"></i> 健康捕手
+        </div>
+
+        <!-- 內容區域 -->
+        <div class="content">
+            
+            <!-- 頁面 1: 今日紀錄 (Home) -->
+            <div id="page-home" class="page active">
+                
+                <!-- 卡路里總覽卡片 -->
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-fire"></i> 今日卡路里</div>
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <div class="text-sm text-gray-500">目標</div>
+                            <div class="text-lg font-bold" id="cal-target-display">2000 kcal</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">已攝取</div>
+                            <div class="text-2xl font-bold text-[var(--secondary-pink)]" id="cal-consumed-display">0</div>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="cal-progress-bar" class="progress-bar" style="width: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-2 text-sm">
+                        剩餘可攝取: <span id="cal-remaining-display" class="font-bold">2000</span> kcal
+                    </div>
+                </div>
+
+                <!-- 快速紀錄卡片 -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <!-- 水分 -->
+                    <div class="card m-0 flex flex-col items-center justify-center py-4 cursor-pointer" onclick="showInputModal('water')">
+                        <i class="fa-solid fa-glass-water text-blue-400 text-2xl mb-2"></i>
+                        <div class="text-sm text-gray-500">水分</div>
+                        <div class="font-bold text-lg"><span id="summary-water">0</span> ml</div>
+                    </div>
+                    <!-- 睡眠 -->
+                    <div class="card m-0 flex flex-col items-center justify-center py-4 cursor-pointer" onclick="showInputModal('sleep')">
+                        <i class="fa-solid fa-bed text-indigo-400 text-2xl mb-2"></i>
+                        <div class="text-sm text-gray-500">睡眠</div>
+                        <div class="font-bold text-lg"><span id="summary-sleep">0</span> hr</div>
+                    </div>
+                    <!-- 體重 -->
+                    <div class="card m-0 flex flex-col items-center justify-center py-4 cursor-pointer" onclick="showInputModal('weight')">
+                        <i class="fa-solid fa-weight-scale text-green-400 text-2xl mb-2"></i>
+                        <div class="text-sm text-gray-500">體重</div>
+                        <div class="font-bold text-lg"><span id="summary-weight">--</span> kg</div>
+                    </div>
+                    <!-- 運動 -->
+                    <div class="card m-0 flex flex-col items-center justify-center py-4 cursor-pointer" onclick="showInputModal('exercise')">
+                        <i class="fa-solid fa-person-running text-orange-400 text-2xl mb-2"></i>
+                        <div class="text-sm text-gray-500">運動</div>
+                        <div class="font-bold text-lg"><span id="summary-exercise">0</span> min</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 頁面 2: 飲食紀錄 -->
+            <div id="page-food" class="page">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-utensils"></i> 新增餐點</div>
+                    <div class="input-group">
+                        <label>餐點名稱</label>
+                        <input type="text" id="food-name" placeholder="例如：排骨便當">
+                    </div>
+                    <div class="input-group">
+                        <label>卡路里 (kcal)</label>
+                        <input type="number" id="food-cal" placeholder="例如：800">
+                    </div>
+                    <button class="btn mt-2" onclick="addFoodRecord()">新增紀錄</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-list"></i> 今日飲食清單</div>
+                    <div id="food-list-container">
+                        <!-- 飲食紀錄會加在這裡 -->
+                        <div class="text-center text-gray-400 text-sm py-4" id="empty-food-msg">尚無紀錄</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 頁面 3: 統計 -->
+            <div id="page-stats" class="page">
+                <h2 class="text-lg font-bold text-center mb-4 text-[var(--text-dark)]">本月數據趨勢</h2>
+                
+                <!-- 選擇要查看的圖表 -->
+                <div class="flex justify-center gap-2 mb-4 flex-wrap">
+                    <button class="px-3 py-1 rounded-full text-xs font-bold bg-[var(--secondary-pink)] text-white" onclick="updateChart('weight')">體重</button>
+                    <button class="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600" onclick="updateChart('sleep')">睡眠</button>
+                    <button class="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600" onclick="updateChart('water')">水分</button>
+                    <button class="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600" onclick="updateChart('exercise')">運動</button>
+                    <button class="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600" onclick="updateChart('calories')">卡路里</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-title" id="chart-title"><i class="fa-solid fa-chart-line"></i> 體重趨勢</div>
+                    <div class="chart-container">
+                        <canvas id="myChart"></canvas>
+                    </div>
+                    <div class="stat-summary">
+                        <div class="text-center">
+                            <div>本月平均</div>
+                            <div class="stat-value" id="stat-avg">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div>最新紀錄</div>
+                            <div class="stat-value" id="stat-latest">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 頁面 4: 設定 -->
+            <div id="page-settings" class="page">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-gear"></i> 目標設定</div>
+                    <div class="input-group">
+                        <label>每日卡路里目標 (kcal)</label>
+                        <input type="number" id="setting-cal-target" value="2000">
+                    </div>
+                    <button class="btn mt-2" onclick="saveSettings()">儲存設定</button>
+                </div>
+                <div class="text-center mt-8">
+                    <button class="px-4 py-2 bg-red-100 text-red-500 rounded-lg text-sm" onclick="clearAllData()">清除所有資料 (測試用)</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 底部導航列 -->
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchPage('home', this)">
+                <i class="fa-solid fa-house"></i>
+                <span>首頁</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('food', this)">
+                <i class="fa-solid fa-apple-whole"></i>
+                <span>飲食</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('stats', this)">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>統計</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('settings', this)">
+                <i class="fa-solid fa-user"></i>
+                <span>設定</span>
+            </div>
+        </div>
+
+        <!-- 輸入資料的彈出視窗 (Modal) -->
+        <div id="input-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+            <div class="bg-white w-5/6 max-w-sm rounded-xl p-5 shadow-2xl transform transition-all">
+                <h3 id="modal-title" class="text-lg font-bold text-[var(--secondary-pink)] mb-4">紀錄數值</h3>
+                <div class="input-group">
+                    <input type="number" id="modal-input" placeholder="請輸入數值">
+                    <div id="modal-unit" class="text-right text-sm text-gray-500 mt-1">單位</div>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg" onclick="closeModal()">取消</button>
+                    <button class="flex-1 py-2 bg-[var(--secondary-pink)] text-white rounded-lg" onclick="saveModalData()">儲存</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 應用狀態與資料 ---
+        const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        // 預設資料結構 (模擬從 LocalStorage 讀取)
+        let appData = {
+            targetCalories: 2000,
+            records: {
+                // 'YYYY-MM-DD': { water: 0, sleep: 0, weight: 0, exercise: 0, food: [{name:'', cal:0}] }
+            }
+        };
+
+        // 目前正在輸入的類型
+        let currentInputType = '';
+        
+        // 圖表實例
+        let myChartInstance = null;
+
+        // 初始化
+        function initApp() {
+            loadData();
+            ensureTodayRecordExists();
+            updateDashboard();
+            renderFoodList();
+        }
+
+        // 載入資料
+        function loadData() {
+            const savedData = localStorage.getItem('healthCatcherData');
+            if (savedData) {
+                appData = JSON.parse(savedData);
+            }
+            document.getElementById('setting-cal-target').value = appData.targetCalories;
+        }
+
+        // 儲存資料
+        function saveData() {
+            localStorage.setItem('healthCatcherData', JSON.stringify(appData));
+            updateDashboard();
+        }
+
+        // 確保今天的紀錄物件存在
+        function ensureTodayRecordExists() {
+            if (!appData.records[todayStr]) {
+                appData.records[todayStr] = {
+                    water: 0,
+                    sleep: 0,
+                    weight: null, // null 表示尚未測量
+                    exercise: 0,
+                    food: []
+                };
+                saveData();
+            }
+        }
+
+        // --- STREAMING_CHUNK:撰寫 JavaScript 邏輯 - 介面更新與互動 ---
+
+        // 切換頁面
+        function switchPage(pageId, navElement) {
+            // 隱藏所有頁面
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            // 顯示目標頁面
+            document.getElementById('page-' + pageId).classList.add('active');
+            
+            // 更新導航列狀態
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            navElement.classList.add('active');
+
+            // 如果切換到統計頁面，初始化圖表
+            if(pageId === 'stats') {
+                updateChart('weight'); // 預設顯示體重
+            }
+        }
+
+        // 儲存設定
+        function saveSettings() {
+            const target = parseInt(document.getElementById('setting-cal-target').value);
+            if (target && target > 0) {
+                appData.targetCalories = target;
+                saveData();
+                
+                // 自訂提示訊息
+                showToast("設定已儲存！");
+            }
+        }
+
+        // 自訂提示框 (取代 alert)
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.className = 'fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full opacity-0 transition-opacity duration-300 z-50';
+            document.body.appendChild(toast);
+            
+            // Fade in
+            setTimeout(() => toast.classList.remove('opacity-0'), 10);
+            
+            // Fade out and remove
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // --- STREAMING_CHUNK:撰寫 JavaScript 邏輯 - Modal 與資料輸入 ---
+
+        // 顯示輸入 Modal
+        function showInputModal(type) {
+            currentInputType = type;
+            const modal = document.getElementById('input-modal');
+            const title = document.getElementById('modal-title');
+            const input = document.getElementById('modal-input');
+            const unit = document.getElementById('modal-unit');
+            
+            // 根據類型設定標題、單位和目前數值
+            let currentVal = appData.records[todayStr][type];
+            
+            switch(type) {
+                case 'water':
+                    title.innerHTML = '<i class="fa-solid fa-glass-water"></i> 紀錄水分';
+                    unit.textContent = '單位: 毫升 (ml)';
+                    input.value = currentVal || '';
+                    break;
+                case 'sleep':
+                    title.innerHTML = '<i class="fa-solid fa-bed"></i> 紀錄睡眠';
+                    unit.textContent = '單位: 小時 (hr)';
+                    input.value = currentVal || '';
+                    break;
+                case 'weight':
+                    title.innerHTML = '<i class="fa-solid fa-weight-scale"></i> 紀錄體重';
+                    unit.textContent = '單位: 公斤 (kg)';
+                    input.value = currentVal || '';
+                    break;
+                case 'exercise':
+                    title.innerHTML = '<i class="fa-solid fa-person-running"></i> 紀錄運動';
+                    unit.textContent = '單位: 分鐘 (min)';
+                    input.value = currentVal || '';
+                    break;
+            }
+            
+            modal.classList.remove('hidden');
+            input.focus();
+        }
+
+        // 關閉 Modal
+        function closeModal() {
+            document.getElementById('input-modal').classList.add('hidden');
+        }
+
+        // 儲存 Modal 輸入的資料
+        function saveModalData() {
+            const inputVal = parseFloat(document.getElementById('modal-input').value);
+            if (!isNaN(inputVal) && inputVal >= 0) {
+                // 水分和運動用累加的，體重和睡眠覆蓋
+                if (currentInputType === 'water' || currentInputType === 'exercise') {
+                    appData.records[todayStr][currentInputType] = (appData.records[todayStr][currentInputType] || 0) + inputVal;
+                    showToast(`已新增 ${inputVal}`);
+                } else {
+                    appData.records[todayStr][currentInputType] = inputVal;
+                    showToast(`已紀錄`);
+                }
+                saveData();
+                closeModal();
+            } else {
+                showToast("請輸入有效的數值");
+            }
+        }
+
+        // --- STREAMING_CHUNK:撰寫 JavaScript 邏輯 - 飲食與卡路里計算 ---
+
+        // 新增飲食紀錄
+        function addFoodRecord() {
+            const nameInput = document.getElementById('food-name');
+            const calInput = document.getElementById('food-cal');
+            
+            const name = nameInput.value.trim();
+            const cal = parseInt(calInput.value);
+
+            if (name && !isNaN(cal) && cal >= 0) {
+                appData.records[todayStr].food.push({ name: name, cal: cal });
+                saveData();
+                
+                // 清空輸入框
+                nameInput.value = '';
+                calInput.value = '';
+                
+                renderFoodList();
+                showToast("餐點已加入！");
+            } else {
+                showToast("請填寫完整的餐點名稱與卡路里");
+            }
+        }
+
+        // 刪除飲食紀錄
+        function deleteFood(index) {
+            appData.records[todayStr].food.splice(index, 1);
+            saveData();
+            renderFoodList();
+        }
+
+        // 渲染飲食清單
+        function renderFoodList() {
+            const container = document.getElementById('food-list-container');
+            const foods = appData.records[todayStr].food;
+            const emptyMsg = document.getElementById('empty-food-msg');
+
+            // 移除舊的列表項目 (保留空訊息元素)
+            const items = container.querySelectorAll('.food-item');
+            items.forEach(item => item.remove());
+
+            if (foods.length === 0) {
+                emptyMsg.style.display = 'block';
+            } else {
+                emptyMsg.style.display = 'none';
+                foods.forEach((food, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'food-item';
+                    div.innerHTML = `
+                        <div>
+                            <span class="font-bold text-gray-700">${food.name}</span>
+                            <span class="text-sm text-[var(--secondary-pink)] ml-2">${food.cal} kcal</span>
+                        </div>
+                        <button class="text-red-400 hover:text-red-600" onclick="deleteFood(${index})">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        // 更新首頁儀表板數據
+        function updateDashboard() {
+            const todayRecord = appData.records[todayStr];
+            
+            // 更新方塊數值
+            document.getElementById('summary-water').textContent = todayRecord.water;
+            document.getElementById('summary-sleep').textContent = todayRecord.sleep;
+            document.getElementById('summary-weight').textContent = todayRecord.weight !== null ? todayRecord.weight : '--';
+            document.getElementById('summary-exercise').textContent = todayRecord.exercise;
+
+            // 計算卡路里
+            let consumedCal = 0;
+            todayRecord.food.forEach(f => consumedCal += f.cal);
+            
+            const target = appData.targetCalories;
+            const remaining = target - consumedCal;
+            
+            // 更新卡路里顯示
+            document.getElementById('cal-target-display').textContent = target + ' kcal';
+            document.getElementById('cal-consumed-display').textContent = consumedCal;
+            document.getElementById('cal-remaining-display').textContent = remaining > 0 ? remaining : 0;
+            
+            // 更新進度條
+            const progressBar = document.getElementById('cal-progress-bar');
+            let percentage = (consumedCal / target) * 100;
+            if (percentage > 100) percentage = 100;
+            progressBar.style.width = percentage + '%';
+            
+            // 根據進度改變顏色邏輯 (預設 CSS 是漸層，這裡可以用 JS 改變背景色)
+            if(percentage < 50) progressBar.style.background = '#4ade80'; // 綠
+            else if (percentage < 90) progressBar.style.background = '#facc15'; // 黃
+            else progressBar.style.background = '#f87171'; // 紅
+        }
+
+        // --- STREAMING_CHUNK:撰寫 JavaScript 邏輯 - 產生模擬資料與圖表 ---
+
+        // 產生模擬的歷史資料 (僅供展示圖表用)
+        function generateMockData() {
+            const date = new Date();
+            // 產生過去 30 天的資料
+            for(let i = 30; i >= 1; i--) {
+                let d = new Date(date);
+                d.setDate(d.getDate() - i);
+                let dateStr = d.toISOString().split('T')[0];
+                
+                if(!appData.records[dateStr]) {
+                    appData.records[dateStr] = {
+                        water: Math.floor(Math.random() * 1000) + 1000, // 1000-2000ml
+                        sleep: (Math.random() * 2 + 6).toFixed(1), // 6-8hr
+                        weight: (65 + Math.random() * 2 - 1).toFixed(1), // 64-66kg 波動
+                        exercise: Math.floor(Math.random() * 60), // 0-60min
+                        food: [
+                            {name: '早餐', cal: Math.floor(Math.random()*200)+300},
+                            {name: '午餐', cal: Math.floor(Math.random()*300)+500},
+                            {name: '晚餐', cal: Math.floor(Math.random()*300)+400}
+                        ]
+                    };
+                }
+            }
+            saveData();
+        }
+
+        // 更新圖表
+        function updateChart(type) {
+            // 更新按鈕樣式
+            const buttons = document.querySelectorAll('#page-stats button[onclick^="updateChart"]');
+            buttons.forEach(btn => {
+                btn.className = "px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 transition-colors duration-300";
+                if(btn.getAttribute('onclick').includes(type)) {
+                    btn.className = "px-3 py-1 rounded-full text-xs font-bold bg-[var(--secondary-pink)] text-white transition-colors duration-300";
+                }
+            });
+
+            // 準備圖表資料
+            const labels = [];
+            const dataPoints = [];
+            
+            // 取得本月前30天(包含今天)的排序日期
+            const sortedDates = Object.keys(appData.records).sort().slice(-30);
+            
+            let total = 0;
+            let count = 0;
+            let latestValue = 0;
+            let chartTitle = "";
+            let yAxisLabel = "";
+            let color = "#FF69B4";
+
+            sortedDates.forEach(dateStr => {
+                const record = appData.records[dateStr];
+                // 簡化日期顯示 (MM/DD)
+                labels.push(dateStr.substring(5).replace('-', '/')); 
+                
+                let val = 0;
+                if (type === 'calories') {
+                    record.food.forEach(f => val += f.cal);
+                    chartTitle = "卡路里攝取趨勢";
+                    yAxisLabel = "kcal";
+                    color = "#f59e0b"; // 橘黃色
+                } else {
+                    val = parseFloat(record[type]) || 0;
+                    
+                    if (type === 'weight') { chartTitle = "體重趨勢"; yAxisLabel = "kg"; color="#4ade80"; }
+                    if (type === 'sleep') { chartTitle = "睡眠趨勢"; yAxisLabel = "hr"; color="#818cf8"; }
+                    if (type === 'water') { chartTitle = "水分攝取趨勢"; yAxisLabel = "ml"; color="#60a5fa"; }
+                    if (type === 'exercise') { chartTitle = "運動時間趨勢"; yAxisLabel = "min"; color="#fb923c"; }
+                }
+
+                dataPoints.push(val);
+                
+                if (val > 0) {
+                    total += val;
+                    count++;
+                    latestValue = val;
+                }
+            });
+
+            // 更新標題和統計數字
+            document.getElementById('chart-title').innerHTML = `<i class="fa-solid fa-chart-line"></i> ${chartTitle}`;
+            
+            const avg = count > 0 ? (total / count).toFixed(1) : 0;
+            document.getElementById('stat-avg').textContent = `${avg} ${yAxisLabel}`;
+            document.getElementById('stat-latest').textContent = `${latestValue} ${yAxisLabel}`;
+
+            // 繪製 Chart.js
+            const ctx = document.getElementById('myChart').getContext('2d');
+            
+            if (myChartInstance) {
+                myChartInstance.destroy();
+            }
+
+            myChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: chartTitle,
+                        data: dataPoints,
+                        borderColor: color,
+                        backgroundColor: color + '33', // 加透明度
+                        borderWidth: 2,
+                        pointBackgroundColor: color,
+                        pointRadius: 3,
+                        fill: true,
+                        tension: 0.4 // 曲線平滑度
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: type !== 'weight', // 體重不從0開始看起來比較有變化
+                            grid: { color: '#f0f0f0' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 7 } // 避免X軸日期擠在一起
+                        }
+                    }
+                }
+            });
+        }
+
+        // 清除資料 (測試用)
+        function clearAllData() {
+            localStorage.removeItem('healthCatcherData');
+            location.reload();
+        }
+
+        // --- 啟動 ---
+        window.onload = function() {
+            initApp();
+            
+            // 如果只有今天的資料，自動產生一些假資料讓圖表有東西看 (首次載入時)
+            if(Object.keys(appData.records).length <= 1) {
+                generateMockData();
+                updateDashboard(); // 重新計算包含今天
+            }
+        };
+
+    </script>
+</body>
+</html>
